@@ -59,6 +59,10 @@ export const CharacterController = ({
   // Mouse look controls
   const mouseRotation = useRef({ x: 0, y: 0 });
   const isPointerLocked = useRef(false);
+  
+  // Touch controls for mobile camera
+  const lastTouchPosition = useRef({ x: 0, y: 0 });
+  const isTouchingCamera = useRef(false);
 
   // Jump controls
   const isGrounded = useRef(true);
@@ -204,12 +208,65 @@ export const CharacterController = ({
       isPointerLocked.current = document.pointerLockElement === document.body;
     };
 
+    // Touch controls for mobile camera
+    const handleTouchStart = (e) => {
+      // Only use touches on the right side of the screen for camera (left side is joystick)
+      const touch = e.touches[e.touches.length - 1]; // Use the latest touch
+      if (touch.clientX > window.innerWidth * 0.3) { // Right 70% of screen for camera
+        lastTouchPosition.current = { x: touch.clientX, y: touch.clientY };
+        isTouchingCamera.current = true;
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (!isTouchingCamera.current) return;
+      
+      // Find the touch that's on the right side (camera control)
+      let cameraTouch = null;
+      for (let i = 0; i < e.touches.length; i++) {
+        if (e.touches[i].clientX > window.innerWidth * 0.3) {
+          cameraTouch = e.touches[i];
+          break;
+        }
+      }
+      
+      if (!cameraTouch) return;
+
+      const sensitivity = 0.005;
+      const deltaX = cameraTouch.clientX - lastTouchPosition.current.x;
+      const deltaY = cameraTouch.clientY - lastTouchPosition.current.y;
+
+      // Update camera rotation
+      mouseRotation.current.x -= deltaX * sensitivity;
+      mouseRotation.current.y -= deltaY * sensitivity;
+      mouseRotation.current.y = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, mouseRotation.current.y));
+
+      lastTouchPosition.current = { x: cameraTouch.clientX, y: cameraTouch.clientY };
+    };
+
+    const handleTouchEnd = (e) => {
+      // Check if any remaining touches are for camera
+      let hasCameraTouch = false;
+      for (let i = 0; i < e.touches.length; i++) {
+        if (e.touches[i].clientX > window.innerWidth * 0.3) {
+          hasCameraTouch = true;
+          break;
+        }
+      }
+      if (!hasCameraTouch) {
+        isTouchingCamera.current = false;
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('pointerlockchange', handlePointerLockChange);
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -218,6 +275,9 @@ export const CharacterController = ({
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('pointerlockchange', handlePointerLockChange);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [userPlayer]);
 
@@ -281,29 +341,29 @@ export const CharacterController = ({
       return;
     }
 
-    // Calculate keyboard movement RELATIVE TO CAMERA
-    let keyboardAngle = null;
+    // Calculate keyboard movement - character-relative controls
     let isKeyboardMoving = false;
+    let isKeyboardTurning = false;
 
     if (userPlayer) {
       const keys = keysPressed.current;
-      let moveX = 0;
-      let moveZ = 0;
-
-      // WASD keys - FIXED INVERSION
-      if (keys.w || keys.arrowup) moveZ += 1;
-      if (keys.s || keys.arrowdown) moveZ -= 1;
-      if (keys.a || keys.arrowleft) moveX -= 1;
-      if (keys.d || keys.arrowright) moveX += 1;
-
-      if (moveX !== 0 || moveZ !== 0) {
+      const turnSpeed = 3.0 * delta; // Rotation speed
+      
+      // A/D or Arrow Left/Right = turn the character
+      if (keys.a || keys.arrowleft) {
+        character.current.rotation.y += turnSpeed;
+        mouseRotation.current.x += turnSpeed; // Camera follows
+        isKeyboardTurning = true;
+      }
+      if (keys.d || keys.arrowright) {
+        character.current.rotation.y -= turnSpeed;
+        mouseRotation.current.x -= turnSpeed; // Camera follows
+        isKeyboardTurning = true;
+      }
+      
+      // W/S or Arrow Up/Down = move forward/backward in facing direction
+      if (keys.w || keys.arrowup || keys.s || keys.arrowdown) {
         isKeyboardMoving = true;
-
-        // Calculate movement angle RELATIVE to camera direction (FIXED)
-        const cameraHorizontalAngle = mouseRotation.current.x;
-        const inputAngle = Math.atan2(moveX, moveZ);
-        // Subtract instead of add to fix inversion
-        keyboardAngle = cameraHorizontalAngle - inputAngle;
       }
     }
 
@@ -311,26 +371,41 @@ export const CharacterController = ({
     const joystickAngle = joystick.angle();
     const isJoystickMoving = joystick.isJoystickPressed() && joystickAngle;
 
-    // Prefer keyboard over joystick if both are active
-    const angle = isKeyboardMoving ? keyboardAngle : joystickAngle;
-    const isMoving = isKeyboardMoving || isJoystickMoving;
-
-    if (isMoving && angle !== null) {
+    // Handle joystick movement (uses joystick angle relative to camera direction)
+    if (isJoystickMoving && joystickAngle !== null) {
       setAnimation("Run");
-      // Character faces movement direction
-      character.current.rotation.y = angle;
-
-      // move character in its own direction
+      // Make joystick relative to camera direction - "up" on joystick moves where camera faces
+      const correctedAngle = joystickAngle + Math.PI + mouseRotation.current.x;
+      character.current.rotation.y = correctedAngle;
+      
       const impulse = {
-        x: Math.sin(angle) * MOVEMENT_SPEED * delta,
+        x: Math.sin(correctedAngle) * MOVEMENT_SPEED * delta,
         y: 0,
-        z: Math.cos(angle) * MOVEMENT_SPEED * delta,
+        z: Math.cos(correctedAngle) * MOVEMENT_SPEED * delta,
       };
-
       rigidbody.current.applyImpulse(impulse, true);
+    } 
+    // Handle keyboard movement (uses character facing direction)
+    else if (isKeyboardMoving) {
+      setAnimation("Run");
+      const facingAngle = character.current.rotation.y;
+      const keys = keysPressed.current;
+      
+      // Direction multiplier: 1 for forward, -1 for backward
+      let direction = 0;
+      if (keys.w || keys.arrowup) direction += 1;
+      if (keys.s || keys.arrowdown) direction -= 1;
+      
+      const impulse = {
+        x: Math.sin(facingAngle) * MOVEMENT_SPEED * delta * direction,
+        y: 0,
+        z: Math.cos(facingAngle) * MOVEMENT_SPEED * delta * direction,
+      };
+      rigidbody.current.applyImpulse(impulse, true);
+    } else if (isKeyboardTurning) {
+      setAnimation("Idle");
     } else {
       setAnimation("Idle");
-      // Keep facing the last direction (don't snap back to camera)
     }
 
     // JUMP LOGIC
