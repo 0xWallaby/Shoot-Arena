@@ -1,0 +1,92 @@
+# Node modules
+node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Production
+build/
+dist/
+out/
+
+# Vite / caching
+.vite/
+.cache/
+/.parcel-cache/
+
+# Next.js
+.next/
+
+# Gatsby
+.cache/
+
+# Storybook
+.storybook/
+
+# Environment files
+.env
+.env.*.local
+.env.local
+.env.production
+.env.test
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Yarn v2+ cache and releases (if used)
+.yarn/*
+!.yarn/releases
+!.yarn/plugins
+!.yarn/patches
+!.yarn/releases
+!.yarn/cache
+!.yarn/versions
+
+# pnpm store
+.pnpm-store/
+
+# PnP
+.pnp.*
+
+# TypeScript
+*.tsbuildinfo
+
+# Test output
+jest-cache/
+coverage/
+
+# Misc
+*.log
+*.pem
+workbox-build.*
+
+# Dist for other bundlers
+/public/build/
+
+# Mac-specific
+._*
+
+# Local envrc for direnv
+.envrc
