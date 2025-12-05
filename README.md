@@ -1,4 +1,4 @@
-# 🎮 Multiplayer Shooter - Shoot Arena
+#ShootPlay Fun
 
 A fast-paced, browser-based multiplayer shooter game built with React Three Fiber and Playroom SDK. Features Solana wallet integration, customizable weapons, real-time multiplayer combat, and stunning 3D graphics.
 
