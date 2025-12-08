@@ -139,7 +139,7 @@ export const WalletConnect = ({ onContinue }) => {
                     marginBottom: "15px",
                     color: "#333",
                 }}>
-                    Welcome to Battle Arena
+                    Welcome to ShootPlay
                 </h1>
 
                 {/* Description */}

@@ -146,7 +146,7 @@ export const LeaderboardPage = () => {
                     marginBottom: "30px",
                 }}>
                     <Link
-                        to="/"
+                        to="/start"
                         style={{
                             color: "white",
                             textDecoration: "none",
@@ -157,7 +157,7 @@ export const LeaderboardPage = () => {
                             gap: "8px",
                         }}
                     >
-                        ← Back to Game
+                        ← Back to Start
                     </Link>
                 </div>
 
