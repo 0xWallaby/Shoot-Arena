@@ -264,9 +264,18 @@ export const CharacterController = ({
     };
   }, [userPlayer]);
 
+  // Track if initial spawn has happened to prevent double spawn
+  const hasSpawned = useRef(false);
+  
   useEffect(() => {
-    if (isHost()) {
-      spawnRandomly();
+    if (isHost() && !hasSpawned.current) {
+      hasSpawned.current = true;
+      // Small delay to ensure rigidbody is ready
+      setTimeout(() => {
+        if (rigidbody.current) {
+          spawnRandomly();
+        }
+      }, 100);
     }
   }, []);
 

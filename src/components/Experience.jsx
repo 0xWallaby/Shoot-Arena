@@ -54,7 +54,14 @@ export const Experience = ({ characterData, downgradedPerformance = false }) => 
     };
   }, []);
 
+  // Track if player join handler is set up
+  const playerJoinSetup = useRef(false);
+  
   useEffect(() => {
+    // Prevent double setup in React strict mode
+    if (playerJoinSetup.current) return;
+    playerJoinSetup.current = true;
+    
     // insertCoin is already called in App.jsx
     // Just set up player join handlers
 
@@ -87,7 +94,13 @@ export const Experience = ({ characterData, downgradedPerformance = false }) => 
         }
       }
 
-      setPlayers((players) => [...players, newPlayer]);
+      // Prevent duplicate players
+      setPlayers((players) => {
+        if (players.some(p => p.state.id === state.id)) {
+          return players; // Player already exists
+        }
+        return [...players, newPlayer];
+      });
 
       state.onQuit(() => {
         setPlayers((players) => players.filter((p) => p.state.id !== state.id));
