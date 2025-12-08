@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 export const WalletConnect = ({ onContinue }) => {
     const [connecting, setConnecting] = useState(false);
@@ -12,6 +13,9 @@ export const WalletConnect = ({ onContinue }) => {
                 const response = await window.solana.connect();
                 const publicKey = response.publicKey.toString();
 
+                // Store in localStorage for leaderboard access
+                localStorage.setItem('walletAddress', publicKey);
+
                 onContinue({
                     connected: true,
                     address: publicKey,
@@ -23,6 +27,9 @@ export const WalletConnect = ({ onContinue }) => {
                 await window.solflare.connect();
                 const publicKey = window.solflare.publicKey.toString();
 
+                // Store in localStorage for leaderboard access
+                localStorage.setItem('walletAddress', publicKey);
+
                 onContinue({
                     connected: true,
                     address: publicKey,
@@ -33,6 +40,9 @@ export const WalletConnect = ({ onContinue }) => {
             else if (window.solana) {
                 const response = await window.solana.connect();
                 const publicKey = response.publicKey.toString();
+
+                // Store in localStorage for leaderboard access
+                localStorage.setItem('walletAddress', publicKey);
 
                 onContinue({
                     connected: true,
@@ -76,6 +86,35 @@ export const WalletConnect = ({ onContinue }) => {
             justifyContent: "center",
             zIndex: 10000,
         }}>
+            {/* Leaderboard Link - Top Right */}
+            <Link
+                to="/leaderboard"
+                style={{
+                    position: "absolute",
+                    top: "20px",
+                    right: "20px",
+                    color: "white",
+                    textDecoration: "none",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "10px 16px",
+                    background: "rgba(255, 255, 255, 0.15)",
+                    borderRadius: "8px",
+                    transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                    e.target.style.background = "rgba(255, 255, 255, 0.25)";
+                }}
+                onMouseLeave={(e) => {
+                    e.target.style.background = "rgba(255, 255, 255, 0.15)";
+                }}
+            >
+                🏆 Leaderboard
+            </Link>
+
             <div style={{
                 background: "rgba(255, 255, 255, 0.95)",
                 borderRadius: "24px",

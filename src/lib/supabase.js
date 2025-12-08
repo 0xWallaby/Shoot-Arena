@@ -117,3 +117,46 @@ export const getLeaderboard = async (limit = 10) => {
     }
 };
 
+/**
+ * Get user's rank in the leaderboard
+ * @param {string} walletAddress - The user's wallet address
+ * @returns {Promise<{success: boolean, rank?: number, data?: any, error?: any}>}
+ */
+export const getUserRank = async (walletAddress) => {
+    try {
+        // First get the user's score
+        const { data: userData, error: userError } = await supabase
+            .from('highscores')
+            .select('*')
+            .eq('wallet_address', walletAddress)
+            .single();
+
+        if (userError && userError.code !== 'PGRST116') {
+            console.error('Error fetching user data:', userError);
+            return { success: false, error: userError };
+        }
+
+        if (!userData) {
+            return { success: true, rank: null, data: null };
+        }
+
+        // Count how many users have more kills
+        const { count, error: countError } = await supabase
+            .from('highscores')
+            .select('*', { count: 'exact', head: true })
+            .gt('total_kills', userData.total_kills);
+
+        if (countError) {
+            console.error('Error counting ranks:', countError);
+            return { success: false, error: countError };
+        }
+
+        const rank = (count || 0) + 1;
+
+        return { success: true, rank, data: userData };
+    } catch (error) {
+        console.error('Error getting user rank:', error);
+        return { success: false, error };
+    }
+};
+
