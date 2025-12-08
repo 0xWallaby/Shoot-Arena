@@ -326,8 +326,10 @@ export const CharacterController = ({
       );
     }
 
-    // CHARACTER FACING - Character faces where camera is looking (CoD style)
-    if (userPlayer) {
+    // CHARACTER FACING - Only for keyboard/mouse (desktop)
+    // Mobile joystick handles its own rotation (soccer style - face movement direction)
+    const joystickActive = joystick.isJoystickPressed();
+    if (userPlayer && !joystickActive) {
       character.current.rotation.y = lookAngle.current;
     }
 
@@ -383,21 +385,34 @@ export const CharacterController = ({
       }
     }
 
-    // Update player position based on joystick (mobile)
+    // Update player position based on joystick (mobile) - Soccer game style
     const joystickAngle = joystick.angle();
-    const isJoystickMoving = joystick.isJoystickPressed() && joystickAngle;
+    const isJoystickMoving = joystick.isJoystickPressed() && joystickAngle !== null;
 
-    // Handle joystick movement (uses joystick angle relative to look direction)
-    if (isJoystickMoving && joystickAngle !== null) {
-      // Make joystick relative to look direction - "up" on joystick moves forward
-      const correctedAngle = joystickAngle + Math.PI + lookAngle.current;
+    // Handle joystick movement - character faces movement direction (soccer style)
+    if (isJoystickMoving) {
+      // Joystick angle relative to camera - "up" on joystick moves where camera faces
+      const movementAngle = joystickAngle + Math.PI + lookAngle.current;
       
+      // Move in joystick direction
       const impulse = {
-        x: Math.sin(correctedAngle) * MOVEMENT_SPEED * delta,
+        x: Math.sin(movementAngle) * MOVEMENT_SPEED * delta,
         y: 0,
-        z: Math.cos(correctedAngle) * MOVEMENT_SPEED * delta,
+        z: Math.cos(movementAngle) * MOVEMENT_SPEED * delta,
       };
       rigidbody.current.applyImpulse(impulse, true);
+      
+      // Rotate character to face movement direction (soccer game style)
+      const currentRotation = character.current.rotation.y;
+      let targetRotation = movementAngle;
+      
+      // Normalize angle difference for smooth rotation
+      let diff = targetRotation - currentRotation;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      
+      // Smooth rotation towards movement direction
+      character.current.rotation.y = currentRotation + diff * Math.min(1, delta * 12);
     }
 
     // Track if player is moving (for animation)
