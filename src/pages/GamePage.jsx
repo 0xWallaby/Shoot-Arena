@@ -82,30 +82,6 @@ export const GamePage = () => {
     <>
       <Loader />
       <Leaderboard />
-      {/* 2D Crosshair overlay for mouse aiming */}
-      <div
-        style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          pointerEvents: 'none',
-          zIndex: 100,
-        }}
-      >
-        {/* Crosshair */}
-        <svg width="40" height="40" viewBox="0 0 40 40">
-          {/* Outer circle */}
-          <circle cx="20" cy="20" r="15" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
-          {/* Inner dot */}
-          <circle cx="20" cy="20" r="3" fill="rgba(255,50,50,0.9)" />
-          {/* Cross lines */}
-          <line x1="20" y1="5" x2="20" y2="12" stroke="rgba(255,255,255,0.8)" strokeWidth="2" />
-          <line x1="20" y1="28" x2="20" y2="35" stroke="rgba(255,255,255,0.8)" strokeWidth="2" />
-          <line x1="5" y1="20" x2="12" y2="20" stroke="rgba(255,255,255,0.8)" strokeWidth="2" />
-          <line x1="28" y1="20" x2="35" y2="20" stroke="rgba(255,255,255,0.8)" strokeWidth="2" />
-        </svg>
-      </div>
       {/* Controls hint */}
       <div
         style={{
@@ -124,7 +100,7 @@ export const GamePage = () => {
           borderRadius: '4px',
         }}
       >
-        Click to start | WASD/Arrows: Move | Mouse: Look | Q/E: Rotate Camera | Click/Space: Shoot | Enter: Jump (x5) | ESC: Release
+        Click to start | WASD/Arrows: Move | Mouse: Look | Q/E: Rotate Camera | Click/Space: Shoot | ESC: Release
       </div>
       <Canvas
         shadows

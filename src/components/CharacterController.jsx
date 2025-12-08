@@ -43,7 +43,6 @@ export const CharacterController = ({
     s: false,
     d: false,
     space: false, // Shoot key (Space)
-    enter: false, // Jump key (Enter)
     shoot: false, // Shoot (mouse click)
     arrowup: false,
     arrowdown: false,
@@ -59,11 +58,6 @@ export const CharacterController = ({
   const lastTouchPosition = useRef({ x: 0, y: 0 });
   const isTouchingCamera = useRef(false);
 
-  // Jump controls - allow up to 5 jumps (multi-jump/flying)
-  const isGrounded = useRef(true);
-  const jumpCount = useRef(0);
-  const maxJumps = 5; // Maximum number of jumps allowed before landing
-  const jumpForce = 8; // Adjust for jump height (default: 8)
 
   const { scene } = useThree();
 
@@ -120,16 +114,12 @@ export const CharacterController = ({
         e.preventDefault(); // Prevent page scroll
         keysPressed.current.space = true; // Space for shooting
       }
-      if (key === 'enter') {
-        e.preventDefault(); // Prevent default enter behavior
-        keysPressed.current.enter = true; // Enter for jumping
-      }
-      // Q/E to rotate camera
+      // Q/E to rotate camera (fast rotation)
       if (key === 'q') {
-        lookAngle.current += 0.08;
+        lookAngle.current += 0.3;
       }
       if (key === 'e') {
-        lookAngle.current -= 0.08;
+        lookAngle.current -= 0.3;
       }
     };
 
@@ -144,7 +134,6 @@ export const CharacterController = ({
       if (e.key === 'ArrowLeft') keysPressed.current.arrowleft = false;
       if (e.key === 'ArrowRight') keysPressed.current.arrowright = false;
       if (key === ' ') keysPressed.current.space = false;
-      if (key === 'enter') keysPressed.current.enter = false;
     };
 
     // Add mouse click for shooting
@@ -305,8 +294,8 @@ export const CharacterController = ({
 
     // CAMERA FOLLOW - Third person behind player (CoD style)
     if (controls.current && userPlayer) {
-      const cameraDistance = window.innerWidth < 1024 ? 8 : 10;
-      const cameraHeight = window.innerWidth < 1024 ? 4 : 5;
+      const cameraDistance = window.innerWidth < 1024 ? 8 : 10; // Closer to character
+      const cameraHeight = window.innerWidth < 1024 ? 2.5 : 3;   // Lower camera to see forward more
 
       // Camera is positioned behind the character based on look angle
       const horizontalAngle = lookAngle.current;
@@ -314,7 +303,7 @@ export const CharacterController = ({
 
       // Camera position: behind and above the player
       const cameraX = playerWorldPos.x - Math.sin(horizontalAngle) * cameraDistance;
-      const cameraY = playerWorldPos.y + cameraHeight + verticalAngle * 3;
+      const cameraY = playerWorldPos.y + cameraHeight + verticalAngle * 2;
       const cameraZ = playerWorldPos.z - Math.cos(horizontalAngle) * cameraDistance;
 
       controls.current.setLookAt(
@@ -412,27 +401,6 @@ export const CharacterController = ({
       setAnimation("Idle");
     }
 
-    // JUMP LOGIC - Multi-jump (up to 5 jumps)
-    // Check if player is on ground (simple check using y-velocity)
-    const velocity = rigidbody.current.linvel();
-    const wasGrounded = isGrounded.current;
-    isGrounded.current = Math.abs(velocity.y) < 0.5; // Grounded if not moving much vertically
-
-    // Reset jump count when landing
-    if (isGrounded.current && !wasGrounded) {
-      jumpCount.current = 0;
-    }
-
-    // Jump when Enter pressed and have jumps remaining
-    if (keysPressed.current.enter && jumpCount.current < maxJumps) {
-      // Reset vertical velocity before jumping for consistent jump height
-      const currentVel = rigidbody.current.linvel();
-      rigidbody.current.setLinvel({ x: currentVel.x, y: 0, z: currentVel.z }, true);
-      rigidbody.current.applyImpulse({ x: 0, y: jumpForce, z: 0 }, true);
-      jumpCount.current += 1;
-      keysPressed.current.enter = false; // Prevent continuous jumping while holding enter
-    }
-
     // SHOOTING LOGIC
     // Check if fire button is pressed (space, mouse click, or joystick)
     const isFiring = keysPressed.current.space || keysPressed.current.shoot || joystick.isPressed("fire");
@@ -524,11 +492,6 @@ export const CharacterController = ({
             animation={animation}
             weapon={weapon}
           />
-          {userPlayer && (
-            <Crosshair
-              position={[WEAPON_OFFSET.x, WEAPON_OFFSET.y, WEAPON_OFFSET.z]}
-            />
-          )}
         </group>
         {userPlayer && (
           <directionalLight
@@ -572,39 +535,5 @@ const PlayerInfo = ({ state }) => {
         <meshBasicMaterial color="red" />
       </mesh>
     </Billboard>
-  );
-};
-
-const Crosshair = (props) => {
-  return (
-    <group {...props}>
-      <mesh position-z={1}>
-        <boxGeometry args={[0.05, 0.05, 0.05]} />
-        <meshBasicMaterial color="black" transparent opacity={0.9} />
-      </mesh>
-      <mesh position-z={2}>
-        <boxGeometry args={[0.05, 0.05, 0.05]} />
-        <meshBasicMaterial color="black" transparent opacity={0.85} />
-      </mesh>
-      <mesh position-z={3}>
-        <boxGeometry args={[0.05, 0.05, 0.05]} />
-        <meshBasicMaterial color="black" transparent opacity={0.8} />
-      </mesh>
-
-      <mesh position-z={4.5}>
-        <boxGeometry args={[0.05, 0.05, 0.05]} />
-        <meshBasicMaterial color="black" opacity={0.7} transparent />
-      </mesh>
-
-      <mesh position-z={6.5}>
-        <boxGeometry args={[0.05, 0.05, 0.05]} />
-        <meshBasicMaterial color="black" opacity={0.6} transparent />
-      </mesh>
-
-      <mesh position-z={9}>
-        <boxGeometry args={[0.05, 0.05, 0.05]} />
-        <meshBasicMaterial color="black" opacity={0.2} transparent />
-      </mesh>
-    </group>
   );
 };
