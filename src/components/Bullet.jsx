@@ -19,14 +19,24 @@ export const Bullet = ({ player, angle, position, onHit }) => {
   useEffect(() => {
     const audio = new Audio("/audios/rifle.mp3");
     audio.play();
-    const velocity = {
-      x: Math.sin(angle) * BULLET_SPEED,
-      y: 0,
-      z: Math.cos(angle) * BULLET_SPEED,
+    
+    // Ensure rigidbody is ready before setting velocity
+    const setVelocity = () => {
+      if (rigidbody.current) {
+        const velocity = {
+          x: Math.sin(angle) * BULLET_SPEED,
+          y: 0,
+          z: Math.cos(angle) * BULLET_SPEED,
+        };
+        rigidbody.current.setLinvel(velocity, true);
+      }
     };
-
-    rigidbody.current.setLinvel(velocity, true);
-  }, []);
+    
+    // Try immediately and with a small delay as fallback
+    setVelocity();
+    const timer = setTimeout(setVelocity, 10);
+    return () => clearTimeout(timer);
+  }, [angle]);
 
   return (
     <group position={[position.x, position.y, position.z]} rotation-y={angle}>

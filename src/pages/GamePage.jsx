@@ -26,6 +26,38 @@ export const GamePage = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Hide Playroom joystick and fire button on desktop
+  useEffect(() => {
+    const isDesktop = window.innerWidth >= 1024 && !('ontouchstart' in window);
+    if (isDesktop && gameStarted) {
+      // Hide joystick controls after a short delay to ensure they're rendered
+      const hideControls = () => {
+        // Find and hide all fixed position elements that look like joystick/buttons
+        const fixedElements = document.querySelectorAll('div[style*="position: fixed"]');
+        fixedElements.forEach(el => {
+          const style = el.getAttribute('style') || '';
+          // Joystick is typically bottom-left, fire button bottom-right
+          if ((style.includes('bottom') && style.includes('left') && style.includes('touch-action')) ||
+              (style.includes('bottom') && style.includes('right') && style.includes('touch-action'))) {
+            el.style.display = 'none';
+          }
+        });
+      };
+      
+      // Run immediately and after delays to catch dynamically created elements
+      hideControls();
+      const timer1 = setTimeout(hideControls, 500);
+      const timer2 = setTimeout(hideControls, 1000);
+      const timer3 = setTimeout(hideControls, 2000);
+      
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+        clearTimeout(timer3);
+      };
+    }
+  }, [gameStarted]);
+
   // Load wallet data from localStorage on mount
   useEffect(() => {
     const storedWallet = localStorage.getItem('walletAddress');

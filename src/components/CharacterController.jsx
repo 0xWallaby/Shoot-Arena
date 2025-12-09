@@ -373,10 +373,12 @@ export const CharacterController = ({
       }
     }
 
-    // CHARACTER FACING - Only for keyboard/mouse (desktop)
-    // Mobile joystick handles its own rotation (soccer style - face movement direction)
+    // CHARACTER FACING
+    // When joystick is actively being used for movement - handled in joystick movement section
+    // When not using joystick (desktop or mobile standing still) - face the look direction instantly
     const joystickActive = joystick.isJoystickPressed();
     if (userPlayer && !joystickActive) {
+      // Instant rotation to match look direction (no delay for shooting accuracy)
       character.current.rotation.y = lookAngle.current;
     }
 
@@ -474,32 +476,48 @@ export const CharacterController = ({
 
     // SHOOTING LOGIC
     // Check if fire button is pressed (space, mouse click, or joystick)
-    const isFiring = keysPressed.current.space || keysPressed.current.shoot || joystick.isPressed("fire");
+    const isFirePressed = keysPressed.current.space || keysPressed.current.shoot;
+    const isJoystickFire = joystick.isPressed("fire");
+    const isFiring = isFirePressed || isJoystickFire;
 
-    if (isFiring) {
-      // Fire in the direction the character is facing (which is towards cursor)
-      const shootAngle = character.current.rotation.y;
+    if (isFiring && userPlayer) {
+      // Desktop (keyboard/mouse): shoot in look direction (instant, no interpolation delay)
+      // Mobile (joystick): shoot in character facing direction (movement direction)
+      const shootAngle = isJoystickFire ? character.current.rotation.y : lookAngle.current;
       setAnimation(isMoving ? "Run_Shoot" : "Idle_Shoot");
-      if (isHost()) {
-        if (Date.now() - lastShoot.current > FIRE_RATE) {
-          lastShoot.current = Date.now();
-          const newBullet = {
-            id: state.id + "-" + +new Date(),
-            position: vec3(rigidbody.current.translation()),
-            angle: shootAngle,
-            player: state.id,
-          };
-          onFire(newBullet);
-        }
+      
+      // Fire rate limiting - use stricter timing
+      const now = Date.now();
+      if (now - lastShoot.current > FIRE_RATE) {
+        lastShoot.current = now;
+        // Use a more unique ID with random component
+        const bulletId = `${state.id}-${now}-${Math.random().toString(36).substr(2, 5)}`;
+        const newBullet = {
+          id: bulletId,
+          position: vec3(rigidbody.current.translation()),
+          angle: shootAngle,
+          player: state.id,
+        };
+        onFire(newBullet);
       }
     }
 
-    if (isHost()) {
+    // Sync position and rotation - each player controls their own character
+    if (userPlayer) {
+      // Current player sends their position and rotation to network
       state.setState("pos", rigidbody.current.translation());
+      state.setState("rot", character.current.rotation.y);
     } else {
+      // Other players receive position and rotation from network
       const pos = state.getState("pos");
       if (pos) {
         rigidbody.current.setTranslation(pos);
+        // Reset velocity to prevent drift (position is network-controlled)
+        rigidbody.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      }
+      const rot = state.getState("rot");
+      if (rot !== undefined && rot !== null) {
+        character.current.rotation.y = rot;
       }
     }
   });
@@ -520,17 +538,19 @@ export const CharacterController = ({
         colliders={false}
         linearDamping={12}
         lockRotations
-        type={isHost() ? "dynamic" : "kinematicPosition"}
+        type="dynamic"
+        gravityScale={userPlayer ? 1 : 0}
         onIntersectionEnter={({ other }) => {
           if (
             isHost() &&
-            other.rigidBody.userData.type === "bullet" &&
-            state.state.health > 0
+            other.rigidBody?.userData?.type === "bullet" &&
+            (state.getState("health") || 0) > 0
           ) {
-            const newHealth =
-              state.state.health - other.rigidBody.userData.damage;
+            const currentHealth = state.getState("health") || 100;
+            const newHealth = currentHealth - other.rigidBody.userData.damage;
             if (newHealth <= 0) {
-              state.setState("deaths", state.state.deaths + 1);
+              const currentDeaths = state.getState("deaths") || 0;
+              state.setState("deaths", currentDeaths + 1);
               state.setState("dead", true);
               state.setState("health", 0);
               rigidbody.current.setEnabled(false);

@@ -11,3 +11,16 @@ body {
   margin: 0;
   background-color: #806247;
 }
+
+/* Hide Playroom joystick and fire button on desktop (screens wider than 1024px) */
+@media (min-width: 1024px) {
+  /* Playroom joystick - usually positioned at bottom left with touch-action */
+  div[style*="bottom"][style*="left"][style*="touch-action"],
+  div[style*="position: fixed"][style*="touch-action: none"],
+  /* Playroom buttons container - usually at bottom right */
+  div[style*="bottom"][style*="right"][style*="touch-action"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}

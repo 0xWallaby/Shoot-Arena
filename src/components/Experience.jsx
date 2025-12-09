@@ -66,10 +66,15 @@ export const Experience = ({ characterData, downgradedPerformance = false }) => 
     // Just set up player join handlers
 
     onPlayerJoin((state) => {
-      // Joystick will only create UI for current player (myPlayer)
+      // Check if mobile device (touch screen or narrow viewport)
+      const isMobile = window.innerWidth < 1024 || 'ontouchstart' in window;
+      
+      // Joystick will only create UI for current player (myPlayer) on mobile
       const joystick = new Joystick(state, {
         type: "angular",
         buttons: [{ id: "fire", label: "Fire" }],
+        // Hide joystick on desktop
+        hidden: !isMobile,
       });
 
       const newPlayer = { state, joystick };
@@ -110,41 +115,127 @@ export const Experience = ({ characterData, downgradedPerformance = false }) => 
 
   const [bullets, setBullets] = useState([]);
   const [hits, setHits] = useState([]);
+  const firedBulletIds = useRef(new Set()); // Track bullets we've already fired
 
+  // Network state for syncing bullets and hits  
   const [networkBullets, setNetworkBullets] = useMultiplayerState("bullets", []);
   const [networkHits, setNetworkHits] = useMultiplayerState("hits", []);
 
-  const onFire = (bullet) => {
-    setBullets((bullets) => [...bullets, bullet]);
-  };
+  // Fire a bullet - host-authority model with client-side prediction
+  const onFire = useCallback((bullet) => {
+    // Prevent duplicate fires (same bullet ID)
+    if (firedBulletIds.current.has(bullet.id)) {
+      return;
+    }
+    firedBulletIds.current.add(bullet.id);
+    
+    // Clean up old IDs (keep last 50)
+    if (firedBulletIds.current.size > 100) {
+      const ids = Array.from(firedBulletIds.current);
+      firedBulletIds.current = new Set(ids.slice(-50));
+    }
 
-  const onHit = (bulletId, position) => {
-    setBullets((bullets) => bullets.filter((bullet) => bullet.id !== bulletId));
-    setHits((hits) => [...hits, { id: bulletId, position }]);
-  };
+    // ALWAYS add to local state immediately for instant visual feedback
+    setBullets((current) => [...current, bullet]);
 
-  const onHitEnded = (hitId) => {
-    setHits((hits) => hits.filter((h) => h.id !== hitId));
-  };
+    if (!isHost()) {
+      // Non-host: store bullet request on player state for host to pick up for physics
+      const player = myPlayer();
+      if (player) {
+        const pending = player.getState("pendingBullet");
+        // Only set if no pending bullet (avoid overwriting)
+        if (!pending) {
+          player.setState("pendingBullet", bullet);
+        }
+      }
+    }
+  }, []);
 
+  // Host polls for pending bullets from other players
   useEffect(() => {
-    setNetworkBullets(bullets);
+    if (!isHost()) return;
+    
+    const pollInterval = setInterval(() => {
+      players.forEach(({ state: playerState }) => {
+        const bullet = playerState.getState("pendingBullet");
+        if (bullet && bullet.id && !firedBulletIds.current.has(bullet.id)) {
+          firedBulletIds.current.add(bullet.id);
+          setBullets((current) => [...current, bullet]);
+          playerState.setState("pendingBullet", null);
+        }
+      });
+    }, 30); // Poll every 30ms for responsiveness
+    
+    return () => clearInterval(pollInterval);
+  }, [players]);
+
+  const onHit = useCallback((bulletId, position) => {
+    if (isHost()) {
+      setBullets((current) => current.filter((b) => b.id !== bulletId));
+      setHits((current) => [...current, { id: bulletId, position }]);
+    }
+  }, []);
+
+  const onHitEnded = useCallback((hitId) => {
+    if (isHost()) {
+      setHits((current) => current.filter((h) => h.id !== hitId));
+    }
+  }, []);
+
+  // Host syncs bullets and hits to network for other players to see
+  useEffect(() => {
+    if (isHost()) {
+      setNetworkBullets(bullets);
+    }
   }, [bullets]);
 
   useEffect(() => {
-    setNetworkHits(hits);
+    if (isHost()) {
+      setNetworkHits(hits);
+    }
   }, [hits]);
 
+  // Non-host receives bullets and hits from network for rendering only
+  useEffect(() => {
+    if (!isHost()) {
+      // Merge network bullets with local bullets that might not be in network yet (prediction)
+      setBullets((current) => {
+        const network = networkBullets || [];
+        const myId = myPlayer()?.id;
+        
+        // Find local bullets that I fired but aren't in network yet
+        const localPending = current.filter(b => 
+          b.player === myId && // It's my bullet
+          !network.some(nb => nb.id === b.id) // Not in network yet
+        );
+        
+        return [...network, ...localPending];
+      });
+    }
+  }, [networkBullets]);
+
+  useEffect(() => {
+    if (!isHost()) {
+      setHits(networkHits || []);
+    }
+  }, [networkHits]);
+
   const onKilled = (_victim, killer) => {
-    const killerState = players.find((p) => p.state.id === killer)?.state;
-    if (killerState) {
-      const newKills = killerState.state.kills + 1;
-      killerState.setState("kills", newKills);
+    const killerPlayer = players.find((p) => p.state.id === killer);
+    if (killerPlayer) {
+      // Use getState to properly read the current kill count
+      const currentKills = killerPlayer.state.getState("kills") || 0;
+      const newKills = currentKills + 1;
+      killerPlayer.state.setState("kills", newKills);
+
+      console.log(`Kill registered! ${killer} now has ${newKills} kills`);
 
       // Save to Supabase if the killer is the current player with connected wallet
       if (killer === myPlayer()?.id && walletConnected) {
         saveKillsToSupabase(newKills);
       }
+    } else {
+      console.warn(`Could not find killer with id: ${killer}`);
     }
   };
 
@@ -163,14 +254,14 @@ export const Experience = ({ characterData, downgradedPerformance = false }) => 
           weapon={state.state.character?.weapon || "AK"}
         />
       ))}
-      {(isHost() ? bullets : networkBullets).map((bullet) => (
+      {bullets.map((bullet) => (
         <Bullet
           key={bullet.id}
           {...bullet}
           onHit={(position) => onHit(bullet.id, position)}
         />
       ))}
-      {(isHost() ? hits : networkHits).map((hit) => (
+      {hits.map((hit) => (
         <BulletHit key={hit.id} {...hit} onEnded={() => onHitEnded(hit.id)} />
       ))}
       <Environment preset="sunset" />
