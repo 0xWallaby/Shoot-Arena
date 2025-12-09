@@ -51,8 +51,7 @@ export const CharacterController = ({
   });
 
   // Camera/look direction (mouse controls this)
-  const lookAngle = useRef(0); // Horizontal look angle
-  const lookVerticalAngle = useRef(0.4); // Vertical look angle (pitch)
+  const lookAngle = useRef(0); // Horizontal look angle only (Y axis locked)
   
   // Touch controls for mobile camera
   const lastTouchPosition = useRef({ x: 0, y: 0 });
@@ -158,11 +157,8 @@ export const CharacterController = ({
       // Only use mouse movement when pointer is locked (FPS style)
       if (document.pointerLockElement === document.body) {
         const sensitivity = 0.002;
-        // Horizontal mouse movement rotates camera/look direction
+        // Horizontal mouse movement rotates camera/look direction (Y axis locked)
         lookAngle.current -= e.movementX * sensitivity;
-        // Vertical mouse movement adjusts camera pitch
-        lookVerticalAngle.current -= e.movementY * sensitivity;
-        lookVerticalAngle.current = Math.max(0.1, Math.min(1.0, lookVerticalAngle.current));
       }
     };
 
@@ -216,10 +212,8 @@ export const CharacterController = ({
       const deltaX = cameraTouch.clientX - lastTouchPosition.current.x;
       const deltaY = cameraTouch.clientY - lastTouchPosition.current.y;
 
-      // Update look angle (mobile)
+      // Update look angle (mobile) - Y axis locked
       lookAngle.current -= deltaX * sensitivity;
-      lookVerticalAngle.current -= deltaY * sensitivity;
-      lookVerticalAngle.current = Math.max(0.1, Math.min(1.0, lookVerticalAngle.current));
 
       lastTouchPosition.current = { x: cameraTouch.clientX, y: cameraTouch.clientY };
     };
@@ -301,18 +295,17 @@ export const CharacterController = ({
 
     const playerWorldPos = vec3(rigidbody.current.translation());
 
-    // CAMERA FOLLOW - Third person behind player (CoD style)
+    // CAMERA FOLLOW - Third person behind player (fixed Y axis, parallel to head)
     if (controls.current && userPlayer) {
-      const cameraDistance = window.innerWidth < 1024 ? 8 : 10; // Closer to character
-      const cameraHeight = window.innerWidth < 1024 ? 2.5 : 3;   // Lower camera to see forward more
+      const cameraDistance = window.innerWidth < 1024 ? 8 : 10;
+      const cameraHeight = window.innerWidth < 1024 ? 2 : 2.5; // Level with character's head
 
-      // Camera is positioned behind the character based on look angle
+      // Camera is positioned behind the character based on horizontal look angle only
       const horizontalAngle = lookAngle.current;
-      const verticalAngle = lookVerticalAngle.current;
 
-      // Camera position: behind and above the player
+      // Camera position: behind and slightly above the player (parallel view)
       const cameraX = playerWorldPos.x - Math.sin(horizontalAngle) * cameraDistance;
-      const cameraY = playerWorldPos.y + cameraHeight + verticalAngle * 2;
+      const cameraY = playerWorldPos.y + cameraHeight; // Fixed height, no vertical tilt
       const cameraZ = playerWorldPos.z - Math.cos(horizontalAngle) * cameraDistance;
 
       controls.current.setLookAt(
