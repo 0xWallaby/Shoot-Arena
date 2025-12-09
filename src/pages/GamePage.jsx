@@ -26,37 +26,84 @@ export const GamePage = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Hide Playroom joystick and fire button on desktop
+  // Detect if running on mobile phone (Android/iPhone)
+  const [isMobilePhone, setIsMobilePhone] = useState(false);
+  
   useEffect(() => {
-    const isDesktop = window.innerWidth >= 1024 && !('ontouchstart' in window);
-    if (isDesktop && gameStarted) {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isAndroid = /android/i.test(userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+    const isMobile = isAndroid || isIOS;
+    setIsMobilePhone(isMobile);
+    
+    // Add body class for CSS targeting
+    if (isMobile) {
+      document.body.classList.add('is-mobile-phone');
+      document.body.classList.remove('is-desktop');
+    } else {
+      document.body.classList.add('is-desktop');
+      document.body.classList.remove('is-mobile-phone');
+    }
+  }, []);
+
+  // Hide Playroom joystick and fire button on desktop (non-mobile)
+  useEffect(() => {
+    if (!isMobilePhone && gameStarted) {
       // Hide joystick controls after a short delay to ensure they're rendered
       const hideControls = () => {
-        // Find and hide all fixed position elements that look like joystick/buttons
+        // Find and hide fixed position elements (joystick containers)
         const fixedElements = document.querySelectorAll('div[style*="position: fixed"]');
         fixedElements.forEach(el => {
           const style = el.getAttribute('style') || '';
-          // Joystick is typically bottom-left, fire button bottom-right
-          if ((style.includes('bottom') && style.includes('left') && style.includes('touch-action')) ||
-              (style.includes('bottom') && style.includes('right') && style.includes('touch-action'))) {
+          // Joystick is at bottom-left, fire button container at bottom-right
+          if (style.includes('bottom') && (style.includes('left: 10px') || style.includes('right'))) {
             el.style.display = 'none';
+            el.style.visibility = 'hidden';
+          }
+        });
+        
+        // Also find and hide absolute positioned fire button (60x60 with border-radius: 10px)
+        const absoluteElements = document.querySelectorAll('div[style*="position: absolute"]');
+        absoluteElements.forEach(el => {
+          const style = el.getAttribute('style') || '';
+          // Fire button has specific dimensions and border-radius
+          if (style.includes('60px') && style.includes('border-radius: 10px')) {
+            el.style.display = 'none';
+            el.style.visibility = 'hidden';
+          }
+        });
+        
+        // Hide any element with touch-action that looks like a control
+        const touchElements = document.querySelectorAll('div[style*="touch-action"]');
+        touchElements.forEach(el => {
+          const style = el.getAttribute('style') || '';
+          if (style.includes('bottom') || style.includes('border-radius: 50%')) {
+            el.style.display = 'none';
+            el.style.visibility = 'hidden';
           }
         });
       };
       
       // Run immediately and after delays to catch dynamically created elements
       hideControls();
-      const timer1 = setTimeout(hideControls, 500);
-      const timer2 = setTimeout(hideControls, 1000);
-      const timer3 = setTimeout(hideControls, 2000);
+      const timer1 = setTimeout(hideControls, 100);
+      const timer2 = setTimeout(hideControls, 500);
+      const timer3 = setTimeout(hideControls, 1000);
+      const timer4 = setTimeout(hideControls, 2000);
+      
+      // Also use MutationObserver to catch new elements
+      const observer = new MutationObserver(hideControls);
+      observer.observe(document.body, { childList: true, subtree: true });
       
       return () => {
         clearTimeout(timer1);
         clearTimeout(timer2);
         clearTimeout(timer3);
+        clearTimeout(timer4);
+        observer.disconnect();
       };
     }
-  }, [gameStarted]);
+  }, [gameStarted, isMobilePhone]);
 
   // Load wallet data from localStorage on mount
   useEffect(() => {
@@ -149,26 +196,12 @@ export const GamePage = () => {
           </svg>
         </div>
       )}
-      {/* Controls hint */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          color: 'rgba(255,255,255,0.6)',
-          fontSize: '12px',
-          fontFamily: 'monospace',
-          pointerEvents: 'none',
-          zIndex: 100,
-          textAlign: 'center',
-          background: 'rgba(0,0,0,0.3)',
-          padding: '8px 16px',
-          borderRadius: '4px',
-        }}
-      >
-        Click to start | WASD/Arrows: Move | Mouse: Look | Q/E: Rotate | V: First Person | Click/Space: Shoot | ESC: Release
-      </div>
+      {/* Controls hint - only show on desktop, not mobile */}
+      {!isMobilePhone && (
+        <div className="desktop-controls-hint">
+          Click to start | WASD/Arrows: Move | Mouse: Look | Q/E: Rotate | V: First Person | Click/Space: Shoot | ESC: Release
+        </div>
+      )}
       <Canvas
         shadows
         camera={{ position: [0, 30, 0], fov: 30, near: 2 }}

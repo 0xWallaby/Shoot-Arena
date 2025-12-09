@@ -12,15 +12,36 @@ body {
   background-color: #806247;
 }
 
-/* Hide Playroom joystick and fire button on desktop (screens wider than 1024px) */
-@media (min-width: 1024px) {
-  /* Playroom joystick - usually positioned at bottom left with touch-action */
-  div[style*="bottom"][style*="left"][style*="touch-action"],
-  div[style*="position: fixed"][style*="touch-action: none"],
-  /* Playroom buttons container - usually at bottom right */
-  div[style*="bottom"][style*="right"][style*="touch-action"] {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-  }
+/* Desktop control instructions - always visible on desktop */
+.desktop-controls-hint {
+  position: fixed !important;
+  bottom: 20px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 12px !important;
+  font-family: monospace !important;
+  pointer-events: none !important;
+  z-index: 9999 !important;
+  text-align: center !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+  padding: 8px 16px !important;
+  border-radius: 4px !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Hide Playroom joystick and fire button on desktop */
+/* Uses body class set by JavaScript based on user agent detection */
+body.is-desktop div[style*="bottom: 10px"][style*="left: 10px"],
+body.is-desktop div[style*="bottom"][style*="left"][style*="border-radius: 50%"],
+body.is-desktop div[style*="position: fixed"][style*="touch-action"],
+body.is-desktop div[style*="bottom"][style*="right"][style*="touch-action"],
+body.is-desktop div[style*="width: 170px"][style*="height: 170px"],
+body.is-desktop div[style*="60px"][style*="border-radius: 10px"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
 }

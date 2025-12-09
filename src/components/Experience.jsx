@@ -66,15 +66,21 @@ export const Experience = ({ characterData, downgradedPerformance = false }) => 
     // Just set up player join handlers
 
     onPlayerJoin((state) => {
-      // Check if mobile device (touch screen or narrow viewport)
-      const isMobile = window.innerWidth < 1024 || 'ontouchstart' in window;
+      // Detect actual mobile device (Android or iPhone/iPad) - NOT just touch capability
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      const isAndroid = /android/i.test(userAgent);
+      const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+      const isMobilePhone = isAndroid || isIOS;
       
-      // Joystick will only create UI for current player (myPlayer) on mobile
+      // Store globally for GamePage to use
+      window.isMobilePhone = isMobilePhone;
+      
+      // Joystick will only create UI for current player (myPlayer) on actual mobile phones
       const joystick = new Joystick(state, {
         type: "angular",
         buttons: [{ id: "fire", label: "Fire" }],
-        // Hide joystick on desktop
-        hidden: !isMobile,
+        // Hide joystick on desktop - only show on Android/iPhone
+        hidden: !isMobilePhone,
       });
 
       const newPlayer = { state, joystick };
